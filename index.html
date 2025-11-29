@@ -1,345 +1,710 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulasi IoT Smart Cane</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SmartCane — Accessible IoT Simulation</title>
+    <meta name="description" content="Accessible interactive SmartCane simulation demonstrating sensors, haptics, audio and IoT dashboard for blind users." />
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+e2G8QYkXoPo2b1gq3K3s8wqkQqV1Y+v+3r0iJT4M=" crossorigin=""/>
     <style>
-        :root {
-            --bg-color: #121212;
-            --text-color: #ffffff;
-            --accent-blue: #00d2ff;
-            --accent-red: #ff3a3a;
-            --accent-green: #3aff5e;
-            --panel-bg: #1e1e1e;
+        :root{
+            /* Colors (use variables for consistent theming) */
+            --bg: linear-gradient(180deg,#051022 0%, #091226 100%);
+            --panel: #0f1724;
+            --card: #0b1320;
+            --text: #e6eef6;
+            --muted:#9aa5b1;
+            --accent:#00c2ff;
+            --danger:#ff5252;
+            --good:#5ee38a;
+            --focus: #ffd54f;
         }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        /* Light theme overrides when body has .light */
+        body.light{
+            --bg: linear-gradient(180deg,#f6f8fb 0%, #eef3f8 100%);
+            --panel: #ffffff;
+            --card: #f7f9fc;
+            --text: #0c1720;
+            --muted: #51606a;
+            --accent: #0b78d1;
+            --danger: #d9534f;
+            --good: #22863a;
+            --focus: #ffb74d;
         }
-        h1 { color: var(--accent-blue); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px;}
-        .subtitle { margin-bottom: 30px; color: #aaa; }
-        
-        .main-container {
-            display: flex;
-            gap: 20px;
-            width: 100%;
-            max-width: 1000px;
-            height: 500px;
+        /* Optional explicit dark class (keeps defaults) */
+        body.dark{ --bg: linear-gradient(180deg,#051022 0%, #091226 100%); }
+        *{box-sizing:border-box}
+        html,body{height:100%;}
+        body{
+            margin:0;padding:20px;background:var(--bg);color:var(--text);font-family:Segoe UI, system-ui, -apple-system, 'Helvetica Neue', Arial;display:flex;flex-direction:column;align-items:center;gap:14px;
         }
+        h1{margin:0;font-size:20px;color:var(--accent);}
+        .subtitle{color:var(--muted);font-size:13px}
 
-        /* Panel Kiri - Dunia Nyata */
-        .panel {
-            flex: 1;
-            background-color: var(--panel-bg);
-            border-radius: 12px;
-            padding: 20px;
-            border: 2px solid #333;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-        }
-        .panel-title {
-            text-align: center;
-            font-weight: bold;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #444;
-            padding-bottom: 10px;
-        }
+        .layout{display:flex;gap:18px;width:100%;max-width:1100px}
+        .panel{flex:1;background:var(--panel);border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,0.03);min-height:420px;position:relative}
+        .panel h2{margin:0 0 12px 0;font-size:14px;color:var(--muted)}
 
-        /* Elemen Simulasi */
-        #user-sim {
-            width: 40px;
-            height: 40px;
-            background-color: var(--text-color);
-            border-radius: 50%;
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            transition: bottom 0.3s ease;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 20px;
-            box-shadow: 0 0 15px rgba(255,255,255,0.5);
-        }
-        .cane-indicator {
-            position: absolute;
-            top: -15px;
-            width: 60px;
-            height: 15px;
-            background-color: var(--accent-blue);
-            border-radius: 10px;
-            opacity: 0.5;
-        }
-        
-        .obstacle {
-            position: absolute;
-            background-color: var(--accent-red);
-            width: 80px;
-            height: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            border-radius: 4px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            font-size: 12px;
-        }
-        #obs1 { top: 150px; }
-        #obs2 { top: 300px; }
+        /* Simulation area */
+        #simArea{background:#06121a;border-radius:8px;height:320px;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,0.02)}
+        .person{position:absolute;left:50%;transform:translateX(-50%);top:18px;width:48px;height:48px;border-radius:50%;background:#fff;color:#000;display:flex;align-items:center;justify-content:center;font-size:24px;}
+        .cane-scan{position:absolute;left:50%;transform:translateX(-50%);top:64px;width:160px;height:12px;border-radius:8px;background:linear-gradient(90deg, rgba(0,194,255,0.15), rgba(0,194,255,0.05));pointer-events:none}
 
-        /* Panel Kanan - Dashboard IoT */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        .status-card {
-            background-color: #2a2a2a;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .status-card h3 { margin: 0 0 10px 0; font-size: 14px; color: #aaa; }
-        .status-value { font-size: 18px; font-weight: bold; color: var(--accent-green); }
-        
-        #connection-status { color: var(--accent-blue); }
-        #alert-box {
-            grid-column: 1 / span 2;
-            background-color: #331111;
-            color: var(--accent-red);
-            padding: 20px;
-            font-size: 20px;
-            text-transform: uppercase;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 60px;
-            border: 2px solid var(--accent-red);
-            animation: none;
-        }
-        .alert-active {
-             animation: pulse-red 1s infinite;
-        }
-        
-        .gps-map-sim {
-             grid-column: 1 / span 2;
-             height: 150px;
-             background-color: #222;
-             border-radius: 8px;
-             position: relative;
-             overflow: hidden;
-             border: 1px solid #444;
-        }
-        .map-path {
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            width: 4px;
-            height: 0%; /* Akan berubah via JS */
-            background-color: var(--accent-blue);
-            transform: translateX(-50%);
-            transition: height 0.3s ease;
-        }
-        .map-pin {
-            width: 15px; height: 15px;
-            background-color: var(--accent-blue);
-            border-radius: 50%;
-            position: absolute;
-            bottom: 0%; /* Akan berubah via JS */
-            left: 50%;
-            transform: translate(-50%, 50%);
-            transition: bottom 0.3s ease;
-            box-shadow: 0 0 10px var(--accent-blue);
-        }
+        .obstacle{position:absolute;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;padding:8px 10px;border-radius:6px;font-size:13px}
+        .obstacle.passed{opacity:0.35;filter:grayscale(60%);pointer-events:none}
 
-        /* Kontrol */
-        .controls {
-            margin-top: 30px;
-            display: flex;
-            gap: 15px;
-        }
-        button {
-            padding: 15px 30px;
-            font-size: 18px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.2s;
-        }
-        #btn-move { background-color: var(--accent-blue); color: #000; }
-        #btn-move:hover { background-color: #00b0d9; transform: translateY(-2px);}
-        #btn-sos { background-color: var(--accent-red); color: #fff; }
-        #btn-sos:hover { background-color: #d93030; transform: translateY(-2px);}
-        #btn-reset { background-color: #444; color: #fff; }
+        .spotlight{position:absolute;left:50%;transform:translateX(-50%);bottom:64px;width:0;height:0;pointer-events:none;transition:all 220ms ease;}
+        /* triangle cone pointing up from person */
+        .spotlight::before{content:"";position:absolute;left:50%;transform:translateX(-50%) rotate(0deg);transform-origin:50% 0;width:0;height:0;border-left:var(--cone,80px) solid transparent;border-right:var(--cone,80px) solid transparent;border-bottom:var(--depth,220px) solid rgba(0,194,255,0.08);border-radius:6px;transition:transform 220ms ease,border-bottom-color 220ms ease}
+        .spotlight.dir-left::before{transform:translateX(-50%) rotate(-25deg)}
+        .spotlight.dir-right::before{transform:translateX(-50%) rotate(25deg)}
+        .spotlight.active::before{border-bottom-color:rgba(0,194,255,0.22);box-shadow:0 6px 20px rgba(0,194,255,0.08)}
 
-        @keyframes pulse-red {
-            0% { box-shadow: 0 0 0 0px rgba(255, 58, 58, 0.7); background-color: #4a1a1a; }
-            100% { box-shadow: 0 0 0 15px rgba(255, 58, 58, 0); background-color: #331111;}
-        }
-        @keyframes pulse-blue {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
-        }
-        .scanning { animation: pulse-blue 1.5s infinite; }
+        /* Dashboard */
+        .dashboard{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .card{background:var(--card);padding:12px;border-radius:8px}
+        .card h3{margin:0 0 8px 0;font-size:13px;color:var(--muted)}
+        .value{font-weight:700;color:var(--text)}
+        #alert{grid-column:1/3;text-align:center;font-weight:700;padding:10px;color:var(--good);border-radius:8px}
 
+        /* Controls */
+        .controls{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
+        button{background:var(--accent);border:none;color:#001;padding:10px 14px;border-radius:8px;font-weight:700;cursor:pointer}
+        .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+        input[type=range]{width:180px}
+
+        /* Focus for keyboard users */
+        :focus{outline:3px solid var(--focus);outline-offset:2px}
+
+        /* Live log (for screen readers) */
+        #liveLog{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+
+        /* Responsive */
+        @media (max-width:900px){.layout{flex-direction:column}.dashboard{grid-template-columns:1fr}}
     </style>
 </head>
 <body>
+    <h1>SmartCane — Accessible IoT Simulation</h1>
+    <div class="subtitle">Interactive demo with audio, vibration and ARIA support. Use keyboard arrows to move.</div>
 
-    <h1>Smart Cane IoT Demo</h1>
-    <div class="subtitle">Simulasi Konektivitas & Respon Real-Time</div>
-
-    <div class="main-container">
-        <div class="panel" style="border-color: var(--accent-blue);">
-            <div class="panel-title">SIMULASI LINGKUNGAN NYATA</div>
-            
-            <div id="obs1" class="obstacle">TEMBOK</div>
-            <div id="obs2" class="obstacle">KURS</div>
-            
-            <div id="user-sim">
-                🚶
-                <div class="cane-indicator scanning"></div>
+    <div class="layout">
+        <section class="panel" aria-labelledby="simTitle">
+            <h2 id="simTitle">Simulated Real World</h2>
+            <div id="simArea" role="application" aria-label="Simulation area showing a person and obstacles">
+                <div id="spotlight" class="spotlight" aria-hidden="true">
+                    <div id="spotlightImg" style="position:absolute;left:50%;transform:translate(-50%,-50%);font-size:22px;pointer-events:none;display:none"></div>
+                </div>
+                <div id="person" class="person" aria-hidden="true">👨‍🦯</div>
+                <div id="scan" class="cane-scan" aria-hidden="true"></div>
+                <svg id="hitboxSvg" width="100%" height="100%" style="position:absolute;left:0;top:0;pointer-events:none;display:none"></svg>
+                <!-- obstacles will be injected here -->
             </div>
-        </div>
 
-        <div class="panel" style="border-color: var(--accent-green);">
-            <div class="panel-title">DASHBOARD APLIKASI IOT (DIGITAL TWIN)</div>
-            
-            <div class="dashboard-grid">
-                <div class="status-card">
-                    <h3>Status Koneksi</h3>
-                    <div id="connection-status" class="status-value">Terhubung (BLE)</div>
+            <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div id="sensorLabel" style="color:var(--muted);font-size:13px">Sensor: fixed up to 5 meters</div>
+                <div style="flex:1"></div>
+                <div style="color:var(--muted);font-size:13px">Keyboard: <strong>↑</strong> move, <strong>Space</strong> add obstacle, <strong>S</strong> SOS</div>
+            </div>
+        </section>
+
+        <aside class="panel" aria-labelledby="dashTitle">
+            <h2 id="dashTitle">IoT Dashboard (Digital Twin)</h2>
+            <div class="dashboard">
+                <div class="card">
+                    <h3>Connection</h3>
+                    <div id="connection" class="value">Connected (Simulated)</div>
                 </div>
-                <div class="status-card">
-                    <h3>Mode Navigasi</h3>
-                    <div class="status-value">Aktif</div>
+                <div class="card">
+                    <h3>Navigation Mode</h3>
+                    <div id="mode" class="value">Autonomous</div>
                 </div>
 
-                <div id="alert-box" class="status-card">
-                    AMAN - Jalur Bersih
-                </div>
+                <div id="alert" class="card" role="status" aria-live="polite">All clear — safe to proceed</div>
 
-                <div class="gps-map-sim">
-                     <div style="position:absolute; top:5px; left:5px; font-size:10px; color:#777;">GPS TRACKING LIVE VIEW</div>
-                     <div class="map-path" id="mapPath"></div>
-                     <div class="map-pin" id="mapPin"></div>
+                <div class="card" style="grid-column:1/3">
+                    <h3>Map (progress)</h3>
+                    <div id="map" style="height:90px;background:#06131a;border-radius:6px;position:relative;border:1px solid rgba(255,255,255,0.02);display:flex;align-items:center;gap:8px;padding:8px;">
+                        <!-- Small illustrative SVG map on the left and vertical progress track on the right -->
+                        <svg width="120" height="74" viewBox="0 0 120 74" aria-hidden="true" focusable="false">
+                            <rect x="2" y="2" width="116" height="70" rx="6" fill="#041018" stroke="rgba(255,255,255,0.02)"/>
+                            <!-- simplified path -->
+                            <path d="M20 60 L40 30 L60 40 L80 20 L100 50" stroke="rgba(0,194,255,0.6)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle id="svgPin" cx="20" cy="60" r="4" fill="#00c2ff" />
+                        </svg>
+                                <div style="flex:1;position:relative;height:58px;">
+                                    <div id="mapTrack" style="position:absolute;right:8px;width:6px;background:var(--accent);bottom:6px;height:5%;border-radius:4px"></div>
+                                    <div id="mapPin" style="position:absolute;right:6px;transform:translate(50%,50%);width:14px;height:14px;border-radius:50%;background:var(--accent);bottom:5%"></div>
+                                </div>
+                                <!-- Leaflet small map for real-street imagery (tiles from OSM) -->
+                                <div id="leafletMap" style="width:180px;height:74px;border-radius:6px;overflow:hidden"></div>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <button id="btnLeft" class="btn-ghost">◀ Move Left</button>
+                <button id="btnForward">▲ Move Forward</button>
+                <button id="btnRight" class="btn-ghost">Move Right ▶</button>
+                <button id="btnAdd" class="btn-ghost">➕ Add Obstacle</button>
+                    <button id="btnDelete" class="btn-ghost">🗑 Delete Obstacle</button>
+                <button id="btnSOS" style="background:var(--danger);color:#fff">Send SOS</button>
+                <button id="btnReset" class="btn-ghost">Reset</button>
+            </div>
+
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
+                <label style="color:var(--muted);font-size:13px"><input id="toggleAudio" type="checkbox" checked> Audio cues</label>
+                <label style="color:var(--muted);font-size:13px"><input id="toggleVibe" type="checkbox" checked> Vibration (if supported)</label>
+                <label style="color:var(--muted);font-size:13px"><input id="toggleVisual" type="checkbox" checked> Visual highlights</label>
+                <label style="color:var(--muted);font-size:13px"><input id="toggleHitbox" type="checkbox"> Show hitbox (debug)</label>
+                <label style="color:var(--muted);font-size:13px"><input id="invertTheme" type="checkbox"> Use opposite system theme</label>
+            </div>
+        </aside>
     </div>
 
-    <div class="controls">
-        <button id="btn-reset" onclick="resetSim()">🔄 Reset Posisi</button>
-        <button id="btn-move" onclick="moveForward()">⬆️ Maju (Simulasi Jalan)</button>
-        <button id="btn-sos" onclick="triggerSOS()">🚨 TEST TOMBOL SOS</button>
-    </div>
+    <div id="liveLog" aria-live="polite"></div>
 
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j6kuy4qk+gZw6k2dQmWQ8Gkq0m1h3f8g+4P4Y+M=" crossorigin=""></script>
     <script>
-        let userPosition = 20; // Posisi awal (bottom dalam px)
-        const maxPosition = 460;
-        const stepSize = 30;
-        
-        // Posisi rintangan (harus sinkron dengan CSS top)
-        // Panel tinggi 500px. Bottom 0 = Top 500.
-        // Obs 2 (Kursi) di Top 300px -> berarti sekitar Bottom 160px - 200px
-        // Obs 1 (Tembok) di Top 150px -> berarti sekitar Bottom 310px - 350px
-        const obstacleZones = [
-            { min: 150, max: 210, name: "AWAS: KURSI DI DEPAN!" },
-            { min: 300, max: 360, name: "BAHAYA: TEMBOK!" }
-        ];
+    // Apply device theme (light/dark) automatically using prefers-color-scheme
+    (function(){
+        const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+        const invertCheckbox = document.getElementById('invertTheme');
 
-        const userSim = document.getElementById('user-sim');
-        const alertBox = document.getElementById('alert-box');
-        const mapPath = document.getElementById('mapPath');
-        const mapPin = document.getElementById('mapPin');
-        const connStatus = document.getElementById('connection-status');
+        function readInvertSetting(){
+            // persistent preference stored in localStorage overrides checkbox if present
+            try{ const v = localStorage.getItem('invertTheme'); if(v !== null) return v === 'true'; }catch(e){}
+            return invertCheckbox ? invertCheckbox.checked : false;
+        }
 
-        function moveForward() {
-            if (userPosition < maxPosition) {
-                userPosition += stepSize;
-                updateSimUI();
+        function applySystemTheme(){
+            try{
+                const prefersDark = mq ? mq.matches : false;
+                const invert = readInvertSetting();
+                const useDark = invert ? !prefersDark : prefersDark;
+                document.body.classList.toggle('dark', useDark);
+                document.body.classList.toggle('light', !useDark);
+            }catch(e){ /* ignore */ }
+        }
+
+        // initialize checkbox from stored preference
+        try{
+            const stored = localStorage.getItem('invertTheme');
+            if(stored !== null && invertCheckbox) invertCheckbox.checked = (stored === 'true');
+        }catch(e){}
+
+        applySystemTheme();
+        if(mq && mq.addEventListener){ mq.addEventListener('change', applySystemTheme); }
+        else if(mq && mq.addListener){ mq.addListener(applySystemTheme); }
+
+        if(invertCheckbox){
+            invertCheckbox.addEventListener('change', ()=>{
+                try{ localStorage.setItem('invertTheme', invertCheckbox.checked ? 'true' : 'false'); }catch(e){}
+                applySystemTheme();
+            });
+        }
+    })();
+    // Accessible SmartCane simulation — enhanced with lateral movement and draggable obstacles
+    const simArea = document.getElementById('simArea');
+    const person = document.getElementById('person');
+    const scan = document.getElementById('scan');
+    const alertEl = document.getElementById('alert');
+    const mapTrack = document.getElementById('mapTrack');
+    const mapPin = document.getElementById('mapPin');
+    const liveLog = document.getElementById('liveLog');
+    const deleteBtn = document.getElementById('btnDelete');
+
+    // spotlight direction state: 'forward' | 'left' | 'right'
+    let spotlightDir = 'forward';
+    let spotlightDirTimeout = null;
+
+    function setSpotlightDirection(dir){
+        spotlightDir = dir || 'forward';
+        if(spotlight){
+            spotlight.classList.remove('dir-left','dir-right','dir-forward');
+            spotlight.classList.add('dir-' + spotlightDir);
+        }
+        if(spotlightDirTimeout) clearTimeout(spotlightDirTimeout);
+        // revert to forward after 1.2s of no lateral movement
+        spotlightDirTimeout = setTimeout(()=>{
+            spotlightDir = 'forward';
+            if(spotlight){
+                spotlight.classList.remove('dir-left','dir-right');
+                spotlight.classList.add('dir-forward');
+            }
+        }, 1200);
+    }
+
+    let personTop = 18; // px from top
+    let personXPct = 50; // percent from left (0-100)
+    const simHeight = 320; // same as CSS
+    const maxY = simHeight - 40; // person travel range
+    let obstacles = [];
+    // global nearest detected obstacle (updated by checkSensors)
+    let nearest = null;
+    // delete mode state: when true, clicking an obstacle deletes it
+    let deleteMode = false;
+
+    function setDeleteMode(on){
+        deleteMode = !!on;
+        if(deleteBtn){
+            deleteBtn.textContent = deleteMode ? '✖ Cancel Delete' : '🗑 Delete Obstacle';
+            if(deleteMode) deleteBtn.style.background = 'rgba(255,82,82,0.08)'; else deleteBtn.style.background = '';
+        }
+        announceLive(deleteMode ? 'Delete mode: click an obstacle to remove it' : 'Delete mode cancelled');
+    }
+
+    function deleteObstacle(obj){
+        if(!obj) return;
+        try{
+            if(obj.marker && map){ map.removeLayer(obj.marker); }
+        }catch(e){}
+        try{ obj.el.remove(); }catch(e){}
+        obstacles = obstacles.filter(o=>o!==obj);
+        announceLive('Obstacle removed');
+        telemetry('obstacle:deleted');
+        setDeleteMode(false);
+        checkSensors();
+    }
+    // Fixed sensor configuration: use up to 10 meters (not adjustable)
+    const FIXED_SENSOR_METERS = 5; // meters (reduced per request)
+    const PIXELS_PER_METER = 10; // simulation scale: 1 meter == 10 px
+    const SENSOR_DEPTH_PX = FIXED_SENSOR_METERS * PIXELS_PER_METER; // depth in px
+    const HITBOX_HALF_WIDTH_PX = 48; // fixed half-width of rectangular hitbox (px) — narrowed per request
+
+    const audioEnabled = () => document.getElementById('toggleAudio').checked;
+    const vibeEnabled = () => document.getElementById('toggleVibe').checked;
+    const visualEnabled = () => document.getElementById('toggleVisual').checked;
+    const spotlight = document.getElementById('spotlight');
+    const scanEl = document.getElementById('scan');
+    const hitboxSvg = document.getElementById('hitboxSvg');
+    const toggleHitbox = document.getElementById('toggleHitbox');
+
+    function placePerson(){
+        person.style.top = personTop + 'px';
+        person.style.left = personXPct + '%';
+        person.style.transform = 'translateX(-50%)';
+        updateMap();
+        updateSpotlight();
+    }
+
+    function updateSpotlight(){
+        if(!spotlight) return;
+        // position origin under person (use person's center so hitbox includes person)
+        const personHeight = (person && person.offsetHeight) ? person.offsetHeight : 48;
+        const originY = personTop + Math.round(personHeight/2);
+        spotlight.style.left = personXPct + '%';
+        const topOffset = originY; // place cone origin at person center
+        spotlight.style.top = topOffset + 'px';
+        // make the visual spotlight match the actual hitbox size
+        const conePx = HITBOX_HALF_WIDTH_PX; // half-width
+        const depthPx = SENSOR_DEPTH_PX; // depth
+        // set CSS variables used by the pseudo-element
+        try{
+            spotlight.style.setProperty('--cone', conePx + 'px');
+            spotlight.style.setProperty('--depth', depthPx + 'px');
+            // size the spotlight container to help alignment (pseudo-element draws relative to it)
+            spotlight.style.width = (conePx*2) + 'px';
+            spotlight.style.height = depthPx + 'px';
+            // compute origin in pixels and position spotlight container so its center aligns with the person
+            const parentRect = simArea.getBoundingClientRect();
+            const originX = parentRect.width * (personXPct/100);
+            // place left edge so container centers at originX
+            spotlight.style.left = Math.round(originX - conePx) + 'px';
+            // disable the translateX centering so pixel math is exact
+            spotlight.style.transform = 'none';
+            spotlight.style.marginLeft = '0px';
+        }catch(e){}
+        spotlight.style.bottom = '';
+        // position scan element slightly above person
+        if(nearest){
+            const meters = Math.max(0, Math.round(nearest.distance / PIXELS_PER_METER));
+            const label = nearest.o.label || nearest.o.el.textContent || 'obstacle';
+            const msg = `Obstacle detected ${meters} meters ahead: ${label}`;
+            showAlert(msg);
+            if(audioEnabled()) speak(msg);
+            if(vibeEnabled() && navigator.vibrate) navigator.vibrate([150,50,150]);
+            if(visualEnabled()) highlightObstacle(nearest.o.el);
+            announceLive(msg);
+            telemetry('sensor:detected:'+nearest.distance+':'+label);
+            spotlight && spotlight.classList.add('active');
+            // show object icon in spotlight
+            const spotlightImg = document.getElementById('spotlightImg');
+            if(spotlightImg){
+                const icon = objectIconForLabel(label);
+                spotlightImg.innerHTML = icon;
+                // place the icon roughly at the visual center of the triangle
+                try{
+                    spotlightImg.style.display = 'block';
+                    // position relative to the spotlight container (left edge at originX - conePx)
+                    spotlightImg.style.transform = 'none';
+                    spotlightImg.style.left = conePx + 'px';
+                    // vertical position: half the depth so icon is centered inside triangle
+                    spotlightImg.style.top = Math.round(depthPx/2) + 'px';
+                    // size responsively to cone width (clamp values)
+                    const sizePx = Math.max(14, Math.min(36, Math.round(conePx/2)));
+                    spotlightImg.style.fontSize = sizePx + 'px';
+                    // if inner content is an <img>, ensure it fits
+                    const img = spotlightImg.querySelector('img');
+                    if(img){ img.style.width = (sizePx*1.6) + 'px'; img.style.height = 'auto'; }
+                }catch(e){}
+            }
+        } else {
+            clearAlert();
+            spotlight && spotlight.classList.remove('active');
+            const spotlightImg = document.getElementById('spotlightImg'); if(spotlightImg) spotlightImg.style.display = 'none';
+        }
+        // Ensure hitbox color is set after redraw
+        setHitboxActive(!!nearest);
+
+        // draw or hide rectangular hitbox for debugging (use fixed hitbox values)
+        if(hitboxSvg){
+            if(toggleHitbox && toggleHitbox.checked){
+                hitboxSvg.style.display = 'block';
+                drawHitboxRect(HITBOX_HALF_WIDTH_PX, SENSOR_DEPTH_PX);
+            } else {
+                hitboxSvg.style.display = 'none';
+            }
+        }
+    }
+
+    function drawHitboxRect(conePx, depthPx){
+        if(!hitboxSvg) return;
+        const rect = simArea.getBoundingClientRect();
+        const parentWidth = rect.width;
+        const parentHeight = rect.height;
+        // origin point under the person (use person's center)
+        const originX = parentWidth * (personXPct/100);
+        const personHeight = (person && person.offsetHeight) ? person.offsetHeight : 48;
+        const originY = personTop + Math.round(personHeight/2);
+        const left = originX - conePx;
+        const right = originX + conePx;
+        const top = originY;
+        const bottom = originY + depthPx;
+        const points = [
+            `${left},${top}`,
+            `${right},${top}`,
+            `${right},${bottom}`,
+            `${left},${bottom}`
+        ].join(' ');
+        let poly = hitboxSvg.querySelector('polygon');
+        if(!poly){
+            poly = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+            poly.setAttribute('fill','rgba(0,194,255,0.06)');
+            poly.setAttribute('stroke','rgba(0,194,255,0.25)');
+            poly.setAttribute('stroke-width','2');
+            poly.setAttribute('pointer-events','none');
+            hitboxSvg.appendChild(poly);
+        }
+        poly.setAttribute('points', points);
+    }
+
+    function setHitboxActive(active){
+        if(!hitboxSvg) return;
+        const poly = hitboxSvg.querySelector('polygon');
+        if(!poly) return;
+        if(active){
+            poly.setAttribute('fill','rgba(255,82,82,0.14)');
+            poly.setAttribute('stroke','rgba(255,82,82,0.9)');
+        } else {
+            poly.setAttribute('fill','rgba(0,194,255,0.06)');
+            poly.setAttribute('stroke','rgba(0,194,255,0.25)');
+        }
+    }
+
+    if(toggleHitbox) toggleHitbox.addEventListener('change', ()=> updateSpotlight());
+
+    function objectIconForLabel(label){
+        // map some common labels to emoji icons — fallback to generic icon
+        const map = {
+            'Chair':'🪑',
+            'Wall':'🧱',
+            'Stair':'🪜',
+            'Person':'👤',
+            'Car':'🚗',
+            'Obstacle':'⚠️'
+        };
+        const key = String(label).trim();
+        return map[key] || map[key.charAt(0).toUpperCase() + key.slice(1)] || '⚠️';
+    }
+
+    function addObstacle(x=null,y=null,label='Obstacle'){
+        // x in px relative to simArea, y is px from TOP now
+        const rect = simArea.getBoundingClientRect();
+        if(x===null) x = Math.round(rect.width/2);
+        if(y===null) y = 60 + Math.floor(Math.random()*200);
+        const el = document.createElement('div');
+        el.className='obstacle';
+        el.textContent = label;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.setAttribute('role','img');
+        el.setAttribute('aria-label', label + ' at ' + y + ' units');
+        simArea.appendChild(el);
+        const obj = {el,x,y,label};
+        makeDraggable(obj);
+        // clicking an obstacle removes it when deleteMode is active
+        el.addEventListener('click', (e)=>{
+            if(deleteMode){ e.stopPropagation(); deleteObstacle(obj); }
+        });
+        obstacles.push(obj);
+        telemetry('obstacleAdded:'+label+'@'+x+','+y);
+    }
+
+    function makeDraggable(obj){
+        const el = obj.el;
+        let dragging = false;
+        let startX=0, startY=0, origLeft=0, origTop=0;
+        el.style.touchAction = 'none';
+        el.addEventListener('pointerdown', e=>{
+            e.preventDefault();
+            dragging = true;
+            startX = e.clientX; startY = e.clientY;
+            const r = el.getBoundingClientRect();
+            const parent = simArea.getBoundingClientRect();
+            origLeft = r.left - parent.left;
+            origTop = r.top - parent.top;
+            el.setPointerCapture(e.pointerId);
+        });
+        window.addEventListener('pointermove', e=>{
+            if(!dragging) return;
+            const parent = simArea.getBoundingClientRect();
+            const nx = origLeft + (e.clientX - startX);
+            const ny = origTop + (e.clientY - startY);
+            const clampedX = Math.max(4, Math.min(parent.width-20, nx));
+            const clampedY = Math.max(4, Math.min(parent.height-20, ny));
+            el.style.left = clampedX + 'px';
+            el.style.top = clampedY + 'px';
+            // update obj coords: x in px, y in units
+            obj.x = clampedX;
+            obj.y = clampedY;
+        });
+        window.addEventListener('pointerup', e=>{
+            if(dragging){
+                dragging=false;
+                announceLive('Obstacle moved');
+                telemetry('obstacleMoved');
+                // if marker exists on map, update its latlng
+                if(obj.marker && map){
+                    try{ obj.marker.setLatLng(simXYToLatLng(obj.x, obj.y)); }catch(er){}
+                }
                 checkSensors();
             }
-        }
+        });
+    }
 
-        function resetSim() {
-            userPosition = 20;
-            updateSimUI();
-            alertBox.innerHTML = "AMAN - Jalur Bersih";
-            alertBox.classList.remove("alert-active");
-            alertBox.style.color = "var(--accent-green)";
-            connStatus.innerText = "Terhubung (BLE)";
-        }
+    function clearObstacles(){ for(let o of obstacles){ o.el.remove(); } obstacles=[]; }
 
-        function updateSimUI() {
-            // Update posisi orang di panel kiri
-            userSim.style.bottom = userPosition + 'px';
-            
-            // Update map di panel kanan (persentase perjalanan)
-            const progressPercent = (userPosition / maxPosition) * 100;
-            mapPath.style.height = progressPercent + '%';
-            mapPin.style.bottom = progressPercent + '%';
-        }
+    function checkSensors(){
+        // Use fixed sensor depth and fixed hitbox half-width (no adjustable sliders)
+        nearest = null; // reset global nearest
+        const parent = simArea.getBoundingClientRect();
+        const personXpx = parent.width * (personXPct/100);
+        const depthNum = SENSOR_DEPTH_PX;
+        const coneNum = HITBOX_HALF_WIDTH_PX;
+        const personHeight = (person && person.offsetHeight) ? person.offsetHeight : 48;
+        const originY = personTop + Math.round(personHeight/2);
 
-        function checkSensors() {
-            let detected = false;
-            
-            for (let zone of obstacleZones) {
-                // Logika sederhana: jika posisi user masuk zona bahaya
-                if (userPosition >= zone.min && userPosition <= zone.max) {
-                    triggerAlert(zone.name);
-                    detected = true;
-                    break; 
+        // mark passed obstacles (already behind the user) and ignore them
+        for(let o of obstacles){
+            if(o.y < originY - 6){
+                if(!o.el.classList.contains('passed')){
+                    o.el.classList.add('passed');
+                    o.el.setAttribute('aria-hidden','true');
+                    if(o.marker && typeof o.marker.setOpacity === 'function') try{o.marker.setOpacity(0.35);}catch(e){}
+                }
+                continue;
+            } else {
+                if(o.el.classList.contains('passed')){
+                    o.el.classList.remove('passed');
+                    o.el.removeAttribute('aria-hidden');
+                    if(o.marker && typeof o.marker.setOpacity === 'function') try{o.marker.setOpacity(1);}catch(e){}
                 }
             }
-
-            if (!detected) {
-                alertBox.innerHTML = "AMAN - Jalur Bersih";
-                alertBox.classList.remove("alert-active");
-                alertBox.style.color = "var(--accent-green)";
+            // compute longitudinal distance (forward) using originY (person center)
+            const dy = o.y - originY; // positive = ahead (below on screen)
+            if(dy > 0 && dy <= depthNum){
+                const dx = Math.abs(personXpx - o.x);
+                // rectangular (fixed half-width) hit test: obstacle is considered if within depth and within fixed half-width
+                if(dx <= coneNum){
+                    if(!nearest || dy < nearest.distance) nearest = {o,distance:dy,dx};
+                }
             }
         }
 
-        function triggerAlert(message) {
-            // Simulasi data dikirim dari tongkat ke aplikasi
-            console.log("IoT Signal Sent: " + message);
-            
-            alertBox.innerHTML = "⚠️ " + message;
-            alertBox.style.color = "var(--accent-red)";
-            alertBox.classList.add("alert-active");
-            
-            // Simulasi getar di browser (jika didukung perangkat)
-            if (navigator.vibrate) {
-                navigator.vibrate(200);
-            }
+        if(nearest){
+            const meters = Math.max(0, Math.round(nearest.distance / PIXELS_PER_METER));
+            const msg = `Obstacle detected ${meters} meters ahead`;
+            showAlert(msg);
+            if(audioEnabled()) speak(msg);
+            if(vibeEnabled() && navigator.vibrate) navigator.vibrate([150,50,150]);
+            if(visualEnabled()) highlightObstacle(nearest.o.el);
+            announceLive(msg);
+            telemetry('sensor:detected:'+nearest.distance);
+            spotlight && spotlight.classList.add('active');
+        } else {
+            clearAlert();
+            spotlight && spotlight.classList.remove('active');
         }
-        
-        function triggerSOS() {
-            resetSim();
-            alertBox.innerHTML = "🚨 SINYAL SOS DIKIRIM KE KELUARGA! 🚨";
-            alertBox.style.color = "var(--accent-red)";
-            alertBox.classList.add("alert-active");
-            connStatus.innerText = "MENGIRIM DATA DARURAT (CLOUD)...";
-            
-            if (navigator.vibrate) {
-                navigator.vibrate([500, 200, 500]);
-            }
+        updateSpotlight();
+        // Ensure hitbox color is set after redraw
+        setHitboxActive(!!nearest);
+    }
+
+    function highlightObstacle(el){
+        el.style.boxShadow = '0 0 12px rgba(255,82,82,0.9)';
+        setTimeout(()=>{ el.style.boxShadow = ''; },700);
+    }
+
+    function showAlert(text){ alertEl.textContent = '⚠ ' + text; alertEl.style.color = 'var(--danger)'; }
+    function clearAlert(){ alertEl.textContent = 'All clear — safe to proceed'; alertEl.style.color = 'var(--good)'; }
+
+    function speak(txt){
+        try{
+            const u = new SpeechSynthesisUtterance(txt);
+            u.lang = 'en-US';
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(u);
+        }catch(e){ console.warn('Speech not supported',e); }
+    }
+
+    function announceLive(msg){ liveLog.textContent = msg; }
+
+    function updateMap(){
+        const pct = Math.min(100, Math.round((personTop/maxY)*100));
+        mapTrack.style.height = pct + '%';
+        mapPin.style.bottom = pct + '%';
+        // update SVG pin if present
+        const svgPin = document.getElementById('svgPin');
+        if(svgPin) svgPin.setAttribute('cx', 20 + (pct/100)*80);
+    }
+
+    // Controls
+    document.getElementById('btnForward').addEventListener('click',()=>{ moveForward(); });
+    document.getElementById('btnLeft').addEventListener('click',()=>{ moveLeft(); });
+    document.getElementById('btnRight').addEventListener('click',()=>{ moveRight(); });
+    document.getElementById('btnAdd').addEventListener('click',()=>{
+        const label = prompt('Label for obstacle (optional):','Obstacle');
+        addObstacle(null,null,label||'Obstacle'); checkSensors();
+    });
+    if(deleteBtn) deleteBtn.addEventListener('click', ()=>{ setDeleteMode(!deleteMode); });
+    document.getElementById('btnReset').addEventListener('click',()=>{ reset(); });
+    document.getElementById('btnSOS').addEventListener('click',()=>{ sendSOS(); });
+
+    function moveForward(){ personTop = Math.min(maxY, personTop + 28); placePerson(); setSpotlightDirection('forward'); checkSensors(); }
+    function moveLeft(){ personXPct = Math.max(6, personXPct - 6); placePerson(); setSpotlightDirection('left'); checkSensors(); }
+    function moveRight(){ personXPct = Math.min(94, personXPct + 6); placePerson(); setSpotlightDirection('right'); checkSensors(); }
+    function reset(){ personTop = 18; personXPct = 50; placePerson(); clearAlert(); clearObstacles(); updateMap(); announceLive('Simulation reset'); }
+    function sendSOS(){ showAlert('SOS sent to contacts'); announceLive('SOS sent'); if(audioEnabled()) speak('Emergency signal sent'); if(vibeEnabled() && navigator.vibrate) navigator.vibrate([400,200,400]); }
+
+    // Click to add obstacle at pointer location
+    simArea.addEventListener('click', (e)=>{
+        if(e.target !== simArea) return; // avoid clicks on obstacles
+        const rect = simArea.getBoundingClientRect();
+        const x = Math.round(e.clientX - rect.left);
+        const yUnits = Math.round(e.clientY - rect.top);
+        const label = prompt('Label for obstacle at this location (optional):','Obstacle');
+        addObstacle(x,yUnits,label||'Obstacle');
+        checkSensors();
+    });
+
+    // Keyboard accessibility
+    window.addEventListener('keydown', (e)=>{
+        if(e.key === 'ArrowUp'){ e.preventDefault(); moveForward(); }
+        else if(e.key === 'ArrowLeft'){ e.preventDefault(); moveLeft(); }
+        else if(e.key === 'ArrowRight'){ e.preventDefault(); moveRight(); }
+        else if(e.code === 'Space'){ e.preventDefault(); addObstacle(); checkSensors(); }
+        else if(e.key.toLowerCase() === 's'){ e.preventDefault(); sendSOS(); }
+        else if(e.key.toLowerCase() === 'r'){ e.preventDefault(); reset(); }
+        else if(e.key.toLowerCase() === 'd'){ e.preventDefault(); setDeleteMode(!deleteMode); }
+    });
+
+    // Initialize Leaflet map and sample obstacles after layout is stable
+    let map, userMarker;
+    function initMap(){
+        // default location (example): city center coordinates
+        const defaultLatLng = [37.7749, -122.4194];
+        map = L.map('leafletMap', { attributionControl: false, zoomControl: false }).setView(defaultLatLng, 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+        // try to center on user's geolocation if available
+        if(navigator.geolocation){
+            navigator.geolocation.getCurrentPosition(pos=>{
+                const latlng = [pos.coords.latitude, pos.coords.longitude];
+                map.setView(latlng, 16);
+            }, ()=>{/* ignore */});
         }
 
-        // Inisialisasi awal
-        resetSim();
+        // click on map -> add obstacle at that latlng
+        map.on('click', function(e){
+            const label = prompt('Label for obstacle (map):','Obstacle');
+            if(!label) return;
+            const latlng = e.latlng;
+            // place marker and obstacle
+            const m = L.marker(latlng, { draggable: true }).addTo(map).bindPopup(label);
+            const rect = simArea.getBoundingClientRect();
+            const simXY = latLngToSimXY(latlng);
+            addObstacle(simXY.x, simXY.y, label);
+            // associate marker with latest obstacle
+            const obs = obstacles[obstacles.length-1];
+            obs.marker = m;
+            m.on('dragend', ()=>{
+                const p = m.getLatLng();
+                const xy = latLngToSimXY(p);
+                obs.x = xy.x; obs.y = xy.y;
+                obs.el.style.left = obs.x + 'px';
+                obs.el.style.top = obs.y + 'px';
+                announceLive('Obstacle moved on map'); telemetry('obstacleMovedOnMap');
+                checkSensors();
+            });
+        });
+
+        // add a user marker that can be used to show current simulated position
+        userMarker = L.circleMarker(map.getCenter(), { radius:6, color:'#00c2ff', fill:true }).addTo(map);
+    }
+
+    function latLngToSimXY(latlng){
+        // Map current map bounds to simArea coordinates
+        const bounds = map.getBounds();
+        const rect = simArea.getBoundingClientRect();
+        const lat = latlng.lat, lng = latlng.lng;
+        const latPct = (bounds.getNorth() - lat) / (bounds.getNorth() - bounds.getSouth());
+        const lngPct = (lng - bounds.getWest()) / (bounds.getEast() - bounds.getWest());
+        const x = Math.round(lngPct * rect.width);
+        const yUnits = Math.round(latPct * maxY);
+        return { x, y: Math.max(0, Math.min(maxY, yUnits)) };
+    }
+
+    function simXYToLatLng(x,y){
+        const bounds = map.getBounds();
+        const rect = simArea.getBoundingClientRect();
+        const lngPct = x / rect.width;
+        const latPct = y / maxY;
+        const lat = bounds.getNorth() - latPct * (bounds.getNorth() - bounds.getSouth());
+        const lng = bounds.getWest() + lngPct * (bounds.getEast() - bounds.getWest());
+        return L.latLng(lat,lng);
+    }
+
+    // Initialize after short delay so layout sizes are available
+    setTimeout(()=>{
+        initMap();
+        const rect = simArea.getBoundingClientRect();
+        addObstacle(Math.round(rect.width*0.5),140,'Chair');
+        addObstacle(Math.round(rect.width*0.6),240,'Wall');
+        placePerson();
+        checkSensors();
+    },120);
+    // Make controls accessible for assistive tech
+    // Sensor is fixed; announce detection range once on load
+    announceLive('Sensor set to ' + FIXED_SENSOR_METERS + ' meters (fixed)');
+
+    // Expose basic simulated IoT telemetry (console)
+    function telemetry(msg){ console.log('[telemetry]',msg); }
+
+    // When obstacles change or alert triggers, simulate sending telemetry
+    const origShowAlert = showAlert;
+    window.showAlert = function(text){ origShowAlert(text); telemetry(text); };
 
     </script>
 </body>
