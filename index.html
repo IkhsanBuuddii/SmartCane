@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi IoT Smart Cane</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #ffffff;
+            --accent-blue: #00d2ff;
+            --accent-red: #ff3a3a;
+            --accent-green: #3aff5e;
+            --panel-bg: #1e1e1e;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: var(--accent-blue); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px;}
+        .subtitle { margin-bottom: 30px; color: #aaa; }
+        
+        .main-container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+            height: 500px;
+        }
+
+        /* Panel Kiri - Dunia Nyata */
+        .panel {
+            flex: 1;
+            background-color: var(--panel-bg);
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #333;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+        .panel-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+
+        /* Elemen Simulasi */
+        #user-sim {
+            width: 40px;
+            height: 40px;
+            background-color: var(--text-color);
+            border-radius: 50%;
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: bottom 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+        .cane-indicator {
+            position: absolute;
+            top: -15px;
+            width: 60px;
+            height: 15px;
+            background-color: var(--accent-blue);
+            border-radius: 10px;
+            opacity: 0.5;
+        }
+        
+        .obstacle {
+            position: absolute;
+            background-color: var(--accent-red);
+            width: 80px;
+            height: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        #obs1 { top: 150px; }
+        #obs2 { top: 300px; }
+
+        /* Panel Kanan - Dashboard IoT */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .status-card {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .status-card h3 { margin: 0 0 10px 0; font-size: 14px; color: #aaa; }
+        .status-value { font-size: 18px; font-weight: bold; color: var(--accent-green); }
+        
+        #connection-status { color: var(--accent-blue); }
+        #alert-box {
+            grid-column: 1 / span 2;
+            background-color: #331111;
+            color: var(--accent-red);
+            padding: 20px;
+            font-size: 20px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 60px;
+            border: 2px solid var(--accent-red);
+            animation: none;
+        }
+        .alert-active {
+             animation: pulse-red 1s infinite;
+        }
+        
+        .gps-map-sim {
+             grid-column: 1 / span 2;
+             height: 150px;
+             background-color: #222;
+             border-radius: 8px;
+             position: relative;
+             overflow: hidden;
+             border: 1px solid #444;
+        }
+        .map-path {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 4px;
+            height: 0%; /* Akan berubah via JS */
+            background-color: var(--accent-blue);
+            transform: translateX(-50%);
+            transition: height 0.3s ease;
+        }
+        .map-pin {
+            width: 15px; height: 15px;
+            background-color: var(--accent-blue);
+            border-radius: 50%;
+            position: absolute;
+            bottom: 0%; /* Akan berubah via JS */
+            left: 50%;
+            transform: translate(-50%, 50%);
+            transition: bottom 0.3s ease;
+            box-shadow: 0 0 10px var(--accent-blue);
+        }
+
+        /* Kontrol */
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        #btn-move { background-color: var(--accent-blue); color: #000; }
+        #btn-move:hover { background-color: #00b0d9; transform: translateY(-2px);}
+        #btn-sos { background-color: var(--accent-red); color: #fff; }
+        #btn-sos:hover { background-color: #d93030; transform: translateY(-2px);}
+        #btn-reset { background-color: #444; color: #fff; }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0px rgba(255, 58, 58, 0.7); background-color: #4a1a1a; }
+            100% { box-shadow: 0 0 0 15px rgba(255, 58, 58, 0); background-color: #331111;}
+        }
+        @keyframes pulse-blue {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        .scanning { animation: pulse-blue 1.5s infinite; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Smart Cane IoT Demo</h1>
+    <div class="subtitle">Simulasi Konektivitas & Respon Real-Time</div>
+
+    <div class="main-container">
+        <div class="panel" style="border-color: var(--accent-blue);">
+            <div class="panel-title">SIMULASI LINGKUNGAN NYATA</div>
+            
+            <div id="obs1" class="obstacle">TEMBOK</div>
+            <div id="obs2" class="obstacle">KURS</div>
+            
+            <div id="user-sim">
+                🚶
+                <div class="cane-indicator scanning"></div>
+            </div>
+        </div>
+
+        <div class="panel" style="border-color: var(--accent-green);">
+            <div class="panel-title">DASHBOARD APLIKASI IOT (DIGITAL TWIN)</div>
+            
+            <div class="dashboard-grid">
+                <div class="status-card">
+                    <h3>Status Koneksi</h3>
+                    <div id="connection-status" class="status-value">Terhubung (BLE)</div>
+                </div>
+                <div class="status-card">
+                    <h3>Mode Navigasi</h3>
+                    <div class="status-value">Aktif</div>
+                </div>
+
+                <div id="alert-box" class="status-card">
+                    AMAN - Jalur Bersih
+                </div>
+
+                <div class="gps-map-sim">
+                     <div style="position:absolute; top:5px; left:5px; font-size:10px; color:#777;">GPS TRACKING LIVE VIEW</div>
+                     <div class="map-path" id="mapPath"></div>
+                     <div class="map-pin" id="mapPin"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="btn-reset" onclick="resetSim()">🔄 Reset Posisi</button>
+        <button id="btn-move" onclick="moveForward()">⬆️ Maju (Simulasi Jalan)</button>
+        <button id="btn-sos" onclick="triggerSOS()">🚨 TEST TOMBOL SOS</button>
+    </div>
+
+    <script>
+        let userPosition = 20; // Posisi awal (bottom dalam px)
+        const maxPosition = 460;
+        const stepSize = 30;
+        
+        // Posisi rintangan (harus sinkron dengan CSS top)
+        // Panel tinggi 500px. Bottom 0 = Top 500.
+        // Obs 2 (Kursi) di Top 300px -> berarti sekitar Bottom 160px - 200px
+        // Obs 1 (Tembok) di Top 150px -> berarti sekitar Bottom 310px - 350px
+        const obstacleZones = [
+            { min: 150, max: 210, name: "AWAS: KURSI DI DEPAN!" },
+            { min: 300, max: 360, name: "BAHAYA: TEMBOK!" }
+        ];
+
+        const userSim = document.getElementById('user-sim');
+        const alertBox = document.getElementById('alert-box');
+        const mapPath = document.getElementById('mapPath');
+        const mapPin = document.getElementById('mapPin');
+        const connStatus = document.getElementById('connection-status');
+
+        function moveForward() {
+            if (userPosition < maxPosition) {
+                userPosition += stepSize;
+                updateSimUI();
+                checkSensors();
+            }
+        }
+
+        function resetSim() {
+            userPosition = 20;
+            updateSimUI();
+            alertBox.innerHTML = "AMAN - Jalur Bersih";
+            alertBox.classList.remove("alert-active");
+            alertBox.style.color = "var(--accent-green)";
+            connStatus.innerText = "Terhubung (BLE)";
+        }
+
+        function updateSimUI() {
+            // Update posisi orang di panel kiri
+            userSim.style.bottom = userPosition + 'px';
+            
+            // Update map di panel kanan (persentase perjalanan)
+            const progressPercent = (userPosition / maxPosition) * 100;
+            mapPath.style.height = progressPercent + '%';
+            mapPin.style.bottom = progressPercent + '%';
+        }
+
+        function checkSensors() {
+            let detected = false;
+            
+            for (let zone of obstacleZones) {
+                // Logika sederhana: jika posisi user masuk zona bahaya
+                if (userPosition >= zone.min && userPosition <= zone.max) {
+                    triggerAlert(zone.name);
+                    detected = true;
+                    break; 
+                }
+            }
+
+            if (!detected) {
+                alertBox.innerHTML = "AMAN - Jalur Bersih";
+                alertBox.classList.remove("alert-active");
+                alertBox.style.color = "var(--accent-green)";
+            }
+        }
+
+        function triggerAlert(message) {
+            // Simulasi data dikirim dari tongkat ke aplikasi
+            console.log("IoT Signal Sent: " + message);
+            
+            alertBox.innerHTML = "⚠️ " + message;
+            alertBox.style.color = "var(--accent-red)";
+            alertBox.classList.add("alert-active");
+            
+            // Simulasi getar di browser (jika didukung perangkat)
+            if (navigator.vibrate) {
+                navigator.vibrate(200);
+            }
+        }
+        
+        function triggerSOS() {
+            resetSim();
+            alertBox.innerHTML = "🚨 SINYAL SOS DIKIRIM KE KELUARGA! 🚨";
+            alertBox.style.color = "var(--accent-red)";
+            alertBox.classList.add("alert-active");
+            connStatus.innerText = "MENGIRIM DATA DARURAT (CLOUD)...";
+            
+            if (navigator.vibrate) {
+                navigator.vibrate([500, 200, 500]);
+            }
+        }
+
+        // Inisialisasi awal
+        resetSim();
+
+    </script>
+</body>
+</html>
