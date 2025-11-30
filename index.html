@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>SmartCane — Accessible IoT Simulation</title>
     <meta name="description" content="Accessible interactive SmartCane simulation demonstrating sensors, haptics, audio and IoT dashboard for blind users." />
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+e2G8QYkXoPo2b1gq3K3s8wqkQqV1Y+v+3r0iJT4M=" crossorigin=""/>
+    <!-- Map removed (Leaflet CSS omitted) -->
     <style>
         :root{
             /* Colors (use variables for consistent theming) */
@@ -122,24 +121,7 @@
 
                 <div id="alert" class="card" role="status" aria-live="polite">All clear — safe to proceed</div>
 
-                <div class="card" style="grid-column:1/3">
-                    <h3>Map (progress)</h3>
-                    <div id="map" style="height:90px;background:#06131a;border-radius:6px;position:relative;border:1px solid rgba(255,255,255,0.02);display:flex;align-items:center;gap:8px;padding:8px;">
-                        <!-- Small illustrative SVG map on the left and vertical progress track on the right -->
-                        <svg width="120" height="74" viewBox="0 0 120 74" aria-hidden="true" focusable="false">
-                            <rect x="2" y="2" width="116" height="70" rx="6" fill="#041018" stroke="rgba(255,255,255,0.02)"/>
-                            <!-- simplified path -->
-                            <path d="M20 60 L40 30 L60 40 L80 20 L100 50" stroke="rgba(0,194,255,0.6)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                            <circle id="svgPin" cx="20" cy="60" r="4" fill="#00c2ff" />
-                        </svg>
-                                <div style="flex:1;position:relative;height:58px;">
-                                    <div id="mapTrack" style="position:absolute;right:8px;width:6px;background:var(--accent);bottom:6px;height:5%;border-radius:4px"></div>
-                                    <div id="mapPin" style="position:absolute;right:6px;transform:translate(50%,50%);width:14px;height:14px;border-radius:50%;background:var(--accent);bottom:5%"></div>
-                                </div>
-                                <!-- Leaflet small map for real-street imagery (tiles from OSM) -->
-                                <div id="leafletMap" style="width:180px;height:74px;border-radius:6px;overflow:hidden"></div>
-                    </div>
-                </div>
+                <!-- Map (progress) removed per user request. -->
             </div>
 
             <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -164,8 +146,7 @@
 
     <div id="liveLog" aria-live="polite"></div>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j6kuy4qk+gZw6k2dQmWQ8Gkq0m1h3f8g+4P4Y+M=" crossorigin=""></script>
+    <!-- Map JS removed (Leaflet script omitted) -->
     <script>
     // Apply device theme (light/dark) automatically using prefers-color-scheme
     (function(){
@@ -210,8 +191,9 @@
     const person = document.getElementById('person');
     const scan = document.getElementById('scan');
     const alertEl = document.getElementById('alert');
-    const mapTrack = document.getElementById('mapTrack');
-    const mapPin = document.getElementById('mapPin');
+    // mapTrack/mapPin removed with Map UI; updateMap is now a safe no-op
+    const mapTrack = null;
+    const mapPin = null;
     const liveLog = document.getElementById('liveLog');
     const deleteBtn = document.getElementById('btnDelete');
 
@@ -258,7 +240,7 @@
     function deleteObstacle(obj){
         if(!obj) return;
         try{
-            if(obj.marker && map){ map.removeLayer(obj.marker); }
+            if(obj.marker && typeof obj.marker.remove === 'function'){ try{ obj.marker.remove(); }catch(e){} }
         }catch(e){}
         try{ obj.el.remove(); }catch(e){}
         obstacles = obstacles.filter(o=>o!==obj);
@@ -481,13 +463,13 @@
             obj.y = clampedY;
         });
         window.addEventListener('pointerup', e=>{
-            if(dragging){
+                if(dragging){
                 dragging=false;
                 announceLive('Obstacle moved');
                 telemetry('obstacleMoved');
-                // if marker exists on map, update its latlng
-                if(obj.marker && map){
-                    try{ obj.marker.setLatLng(simXYToLatLng(obj.x, obj.y)); }catch(er){}
+                // if a map marker exists, remove map-sync since map was removed
+                if(obj.marker && typeof obj.marker.setLatLng === 'function'){
+                    try{ /* map syncing removed */ }catch(er){}
                 }
                 checkSensors();
             }
@@ -572,12 +554,9 @@
     function announceLive(msg){ liveLog.textContent = msg; }
 
     function updateMap(){
-        const pct = Math.min(100, Math.round((personTop/maxY)*100));
-        mapTrack.style.height = pct + '%';
-        mapPin.style.bottom = pct + '%';
-        // update SVG pin if present
-        const svgPin = document.getElementById('svgPin');
-        if(svgPin) svgPin.setAttribute('cx', 20 + (pct/100)*80);
+        // Map/progress was removed — keep this function as a safe no-op so
+        // other code calling it (placePerson, reset) won't throw.
+        return;
     }
 
     // Controls
@@ -620,75 +599,12 @@
         else if(e.key.toLowerCase() === 'd'){ e.preventDefault(); setDeleteMode(!deleteMode); }
     });
 
-    // Initialize Leaflet map and sample obstacles after layout is stable
-    let map, userMarker;
-    function initMap(){
-        // default location (example): city center coordinates
-        const defaultLatLng = [37.7749, -122.4194];
-        map = L.map('leafletMap', { attributionControl: false, zoomControl: false }).setView(defaultLatLng, 14);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    // Map and map-related code removed per user request (no Leaflet usage).
 
-        // try to center on user's geolocation if available
-        if(navigator.geolocation){
-            navigator.geolocation.getCurrentPosition(pos=>{
-                const latlng = [pos.coords.latitude, pos.coords.longitude];
-                map.setView(latlng, 16);
-            }, ()=>{/* ignore */});
-        }
+    // latLng/Sim conversion removed since the map is not present.
 
-        // click on map -> add obstacle at that latlng
-        map.on('click', function(e){
-            const label = prompt('Label for obstacle (map):','Obstacle');
-            if(!label) return;
-            const latlng = e.latlng;
-            // place marker and obstacle
-            const m = L.marker(latlng, { draggable: true }).addTo(map).bindPopup(label);
-            const rect = simArea.getBoundingClientRect();
-            const simXY = latLngToSimXY(latlng);
-            addObstacle(simXY.x, simXY.y, label);
-            // associate marker with latest obstacle
-            const obs = obstacles[obstacles.length-1];
-            obs.marker = m;
-            m.on('dragend', ()=>{
-                const p = m.getLatLng();
-                const xy = latLngToSimXY(p);
-                obs.x = xy.x; obs.y = xy.y;
-                obs.el.style.left = obs.x + 'px';
-                obs.el.style.top = obs.y + 'px';
-                announceLive('Obstacle moved on map'); telemetry('obstacleMovedOnMap');
-                checkSensors();
-            });
-        });
-
-        // add a user marker that can be used to show current simulated position
-        userMarker = L.circleMarker(map.getCenter(), { radius:6, color:'#00c2ff', fill:true }).addTo(map);
-    }
-
-    function latLngToSimXY(latlng){
-        // Map current map bounds to simArea coordinates
-        const bounds = map.getBounds();
-        const rect = simArea.getBoundingClientRect();
-        const lat = latlng.lat, lng = latlng.lng;
-        const latPct = (bounds.getNorth() - lat) / (bounds.getNorth() - bounds.getSouth());
-        const lngPct = (lng - bounds.getWest()) / (bounds.getEast() - bounds.getWest());
-        const x = Math.round(lngPct * rect.width);
-        const yUnits = Math.round(latPct * maxY);
-        return { x, y: Math.max(0, Math.min(maxY, yUnits)) };
-    }
-
-    function simXYToLatLng(x,y){
-        const bounds = map.getBounds();
-        const rect = simArea.getBoundingClientRect();
-        const lngPct = x / rect.width;
-        const latPct = y / maxY;
-        const lat = bounds.getNorth() - latPct * (bounds.getNorth() - bounds.getSouth());
-        const lng = bounds.getWest() + lngPct * (bounds.getEast() - bounds.getWest());
-        return L.latLng(lat,lng);
-    }
-
-    // Initialize after short delay so layout sizes are available
+    // Initialize sample obstacles and person after short delay so layout is available
     setTimeout(()=>{
-        initMap();
         const rect = simArea.getBoundingClientRect();
         addObstacle(Math.round(rect.width*0.5),140,'Chair');
         addObstacle(Math.round(rect.width*0.6),240,'Wall');
